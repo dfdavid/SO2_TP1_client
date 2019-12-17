@@ -14,7 +14,7 @@ char firmware_version[20] = "1.0";
 uint16_t server_port= 5520;
 char ip_server_buff[32]="192.168.2.7";
 char *ip_server = NULL;
-
+int retry_time=3;
 
 
 int main() {
@@ -50,29 +50,27 @@ int main() {
     //Upon successful completion, connect() returns 0. Otherwise, -1 is returned and errno is set to indicate the error.
     while( connect( sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr) ) < 0 ){
         perror("Intentando conectar al servidor");
+        //printf("Reintentando coenctar en %d segundos \n", retry_time);
+        sleep(retry_time);
     }
     printf("Se ha realizado la conexion de manera exitosa con el servidor \n");
-    //printf("cerrando programa en 5 segundos...");
-    //sleep(5);
 
-    strcpy(buffer, "probando el envio" );
-    //Upon successful completion, send() returns the number of bytes sent. Otherwise, -1 is returned and errno is set to indicate the error.
+    //char key[10];
+    while( strcmp(buffer, "fin") != 0  ){
+        memset(buffer, 0 , sizeof(buffer));
+        printf("enviar al servidor: \n");
+        scanf( "%s", buffer);
 
-    if (send(sockfd, &buffer, sizeof(buffer), 0) < 0 ){
-        perror("error al enviar");
+        //Upon successful completion, send() returns the number of bytes sent. Otherwise, -1 is returned and errno is set to indicate the error.
+        if (send(sockfd, &buffer, sizeof(buffer), 0) < 0 ){
+            perror("error al enviar");
+        }
+
     }
 
-
-
-
-
-
-
-
-
-    //realizar conexion
-
-
+    if ( shutdown( sockfd, SHUT_RDWR ) < 0 ){
+        perror("shutdown fail");
+    }
 
     return 0;
-}
+}//end main
