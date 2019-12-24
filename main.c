@@ -6,13 +6,13 @@
 #include <unistd.h> //en esta libreria esta la funcion sleep(), la funcion read()
 
 #define BUFFER_SIZE 1000
-#define SERVER_PORT 10000
+
 
 
 
 char firmware_version[20] = "1.0";
 uint16_t server_port= 5520;
-char ip_server_buff[32]="192.168.2.7";
+char ip_server_buff[32]="192.168.1.8";
 char *ip_server = NULL;
 int retry_time=3;
 
@@ -22,7 +22,7 @@ int main() {
     int sockfd, ip_srv_load;
     struct sockaddr_in dest_addr;
     char buffer[BUFFER_SIZE], auxBuffer[BUFFER_SIZE];
-
+    char buffer_recepcion[BUFFER_SIZE];
 
     //crer socket
     sockfd= socket(AF_INET, SOCK_STREAM, 0);
@@ -56,17 +56,34 @@ int main() {
     printf("Se ha realizado la conexion de manera exitosa con el servidor \n");
 
     //char key[10];
-    while( strcmp(buffer, "fin") != 0  ){
+    while( strcmp(buffer, "fin\n") != 0  ){
         memset(buffer, 0 , sizeof(buffer));
         printf("enviar al servidor: \n");
-        scanf( "%s", buffer);
+
+        //scanf lee desde la consola pero separa strings al detectar espacios en blanco
+        //https://pablohaya.com/2013/10/12/diferencia-entre-scanf-gets-y-fgets/
+        //scanf( "%s", buffer);
+
+        //usando fgets para ingresar string por consola
+        fgets(buffer, sizeof(buffer)-1, stdin);
 
         //Upon successful completion, send() returns the number of bytes sent. Otherwise, -1 is returned and errno is set to indicate the error.
         if (send(sockfd, &buffer, sizeof(buffer), 0) < 0 ){
             perror("error al enviar");
         }
 
-    }
+        //esto esta al pedo. El hilo se bloquea hasta que recibe algo
+        //sleep(1);
+
+        //Upon successful completion, recv() returns the length of the message in bytes. If no messages are available to be received and the peer has performed an orderly shutdown, recv() returns 0. Otherwise, -1 is returned and errno is set to indicate the error.
+        if (recv(sockfd, buffer_recepcion, sizeof(buffer), 0  ) < 0){
+            perror("error al recibir");
+        }
+
+        printf("%s", buffer_recepcion);
+
+
+    }//end while
 
     if ( shutdown( sockfd, SHUT_RDWR ) < 0 ){
         perror("shutdown fail");
