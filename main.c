@@ -14,7 +14,7 @@
 
 char firmware_version[20] = "1.0";
 uint16_t server_port= 5520;
-char ip_server_buff[32]="127.0.0.1";
+char ip_server_buff[32]="192.168.2.7";
 char *ip_server = NULL;
 int retry_time=3;
 
@@ -23,7 +23,7 @@ long get_uptime();
 
 int main() {
 
-    printf("ejecutando main \n");
+    printf("ejecutando main, MONO GARK \n");
 
     int sockfd, ip_srv_load;
     struct sockaddr_in dest_addr;
