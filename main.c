@@ -4,6 +4,8 @@
 #include <netinet/in.h> // la estructura sockaadr_in pertence a esta libreria
 #include <arpa/inet.h>
 #include <unistd.h> //en esta libreria esta la funcion sleep(), la funcion read()
+#include <sys/sysinfo.h>
+#include <stdbool.h>
 
 #define BUFFER_SIZE 1000
 
@@ -12,9 +14,11 @@
 
 char firmware_version[20] = "1.0";
 uint16_t server_port= 5520;
-char ip_server_buff[32]="192.168.1.8";
+char ip_server_buff[32]="127.0.0.1";
 char *ip_server = NULL;
 int retry_time=3;
+
+long get_uptime();
 
 
 int main() {
@@ -55,6 +59,8 @@ int main() {
     }
     printf("Se ha realizado la conexion de manera exitosa con el servidor \n");
 
+
+
     //char key[10];
     while( strcmp(buffer, "fin\n") != 0  ){
         memset(buffer, 0 , sizeof(buffer));
@@ -76,7 +82,7 @@ int main() {
         //sleep(1);
 
         //Upon successful completion, recv() returns the length of the message in bytes. If no messages are available to be received and the peer has performed an orderly shutdown, recv() returns 0. Otherwise, -1 is returned and errno is set to indicate the error.
-        if (recv(sockfd, buffer_recepcion, sizeof(buffer), 0  ) < 0){
+        if (recv(sockfd, buffer_recepcion, sizeof(buffer_recepcion), 0  ) < 0){
             perror("error al recibir");
         }
 
@@ -91,3 +97,13 @@ int main() {
 
     return 0;
 }//end main
+
+long get_uptime(){
+    struct sysinfo s_info;
+    int error = sysinfo(&s_info);
+    if(error != 0)
+    {
+        printf("code error = %d\n", error);
+    }
+    return s_info.uptime;
+}
