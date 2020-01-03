@@ -23,6 +23,8 @@ long get_uptime();
 
 int main() {
 
+    printf("ejecutando main \n");
+
     int sockfd, ip_srv_load;
     struct sockaddr_in dest_addr;
     char buffer[BUFFER_SIZE], auxBuffer[BUFFER_SIZE];
