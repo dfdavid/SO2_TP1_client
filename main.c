@@ -8,7 +8,7 @@
 #include <stdbool.h>
 
 #define BUFFER_SIZE 1000
-
+#define PORTUDP 5521
 
 
 
@@ -16,18 +16,26 @@ char firmware_version[20] = "1.0";
 uint16_t server_port= 5520;
 char ip_server_buff[32]="192.168.2.7";
 char *ip_server = NULL;
-int retry_time=3;
+unsigned int retry_time=3;
+char buffer[BUFFER_SIZE], auxBuffer[BUFFER_SIZE];
 
-long get_uptime();
+long get_uptime(); //esta funcion devuelve el uptime del SO del satelite
+//funcion 1
+int update_firmware();
+//funcion 2
+int start_scanning();
+int send_telemetria();
+
+
 
 
 int main() {
 
-    printf("ejecutando main, MONO GARK \n");
+    printf("ejecutando main \n");
 
     int sockfd, ip_srv_load;
     struct sockaddr_in dest_addr;
-    char buffer[BUFFER_SIZE], auxBuffer[BUFFER_SIZE];
+
     char buffer_recepcion[BUFFER_SIZE];
 
     //crer socket
@@ -36,7 +44,6 @@ int main() {
         perror("error al abrir el socket cliente");
     }
 
-
     //setear la estructura sockaddr
     memset(&dest_addr, 0, sizeof(dest_addr) ); //limpieza de la estructura
     dest_addr.sin_family= AF_INET;
@@ -44,13 +51,10 @@ int main() {
     ip_server = (char *)&ip_server_buff;
     //https://www.systutorials.com/docs/linux/man/3-inet_aton/
     //The inet_aton() function returns 1 if the address is successfully converted, or 0 if the conversion failed.
-
     if (  inet_aton(ip_server, &dest_addr.sin_addr ) == 0 )  {
         fprintf(stderr, "Invalid address\n");
 
     }
-
-    //implementar bind()    hace falta esto en el cliente?
 
     //Conexion
     //Upon successful completion, connect() returns 0. Otherwise, -1 is returned and errno is set to indicate the error.
@@ -62,33 +66,36 @@ int main() {
     printf("Se ha realizado la conexion de manera exitosa con el servidor \n");
 
 
+    while( strcmp(buffer_recepcion, "fin\n") != 0  ){
+        memset(buffer_recepcion, 0 , sizeof(buffer_recepcion));
 
-    //char key[10];
-    while( strcmp(buffer, "fin\n") != 0  ){
-        memset(buffer, 0 , sizeof(buffer));
-        printf("enviar al servidor: \n");
-
-        //scanf lee desde la consola pero separa strings al detectar espacios en blanco
-        //https://pablohaya.com/2013/10/12/diferencia-entre-scanf-gets-y-fgets/
-        //scanf( "%s", buffer);
-
-        //usando fgets para ingresar string por consola
-        fgets(buffer, sizeof(buffer)-1, stdin);
-
-        //Upon successful completion, send() returns the number of bytes sent. Otherwise, -1 is returned and errno is set to indicate the error.
-        if (send(sockfd, &buffer, sizeof(buffer), 0) < 0 ){
-            perror("error al enviar");
-        }
-
-        //esto esta al pedo. El hilo se bloquea hasta que recibe algo
-        //sleep(1);
-
+        //En este punto se recibe el comando desde la estacion terresre en forma de codigo numerico
         //Upon successful completion, recv() returns the length of the message in bytes. If no messages are available to be received and the peer has performed an orderly shutdown, recv() returns 0. Otherwise, -1 is returned and errno is set to indicate the error.
         if (recv(sockfd, buffer_recepcion, sizeof(buffer_recepcion), 0  ) < 0){
             perror("error al recibir");
         }
 
-        printf("%s", buffer_recepcion);
+        //opciones del lado del cliente:
+        /*
+        1 - Update Satellite Firmware
+        2 - Start Scanning
+        3 - Get Telemetry
+        */
+        printf("%s \n", buffer_recepcion);
+        if (strcmp(buffer_recepcion, "1") == 0 ){ // Update Satellite Firmware
+            update_firmware();
+            send(sockfd, buffer, sizeof(buffer), 0 );
+        }
+        else if( strcmp(buffer_recepcion, "2") == 0 ){ // Start Scanning
+            start_scanning();
+        }
+        else if( strcmp(buffer_recepcion, "3") == 0 ){ // Get Telemetry
+            send_telemetria();
+        }
+        else{
+            printf("DEBUG: se recibio algo distinto de 1 2 o 3 \n");
+            sleep(2);
+        }
 
 
     }//end while
@@ -109,3 +116,98 @@ long get_uptime(){
     }
     return s_info.uptime;
 }
+
+//funcion 1
+int update_firmware(){
+    printf("ha invocado la funcion 'Update Satellite Firmware'\n");
+    printf("la version actual del firmware en este dispositivo es: %s\n", firmware_version);
+    printf("falta implementar el cuerpo de esta funcion\n");
+    char *msg="";
+    sprintf(msg, "la version actual del firmware en este dispositivo es: %s", firmware_version);
+    strcpy(buffer, msg);
+
+}
+
+//funcion 2
+int start_scanning(){
+    printf("ha invocado la funcion 'start_scanning' \n");
+    printf("falta implementar el cuerpo de esta funcion \n");
+}
+
+//funcion 3
+int send_telemetria(){
+    printf("se hainvocado la funcion send_telemetria \n");
+
+    //implementacion
+    char telemetria[200];
+    int num =0;
+    char *str="a";
+    sprintf(telemetria, "%d|%s| \n", num, str);
+    printf("DEBUG: telemetria = %s\n", telemetria);
+
+    //envio por UDP
+    int sockudp_client;
+    struct sockaddr_in st_server; //aca hay que poner la IP que vaya a tener el satellite, quien oficia de server UDP
+    sockudp_client = socket(AF_INET, SOCK_DGRAM, 0);
+    if ( sockudp_client < 0){
+        perror("error al abrir el socket UDP en el cliente");
+    }
+
+    //limpio la estrucutra que contiene los datos del server
+    memset(&st_server, 0, sizeof(st_server));
+    //carga de la estructura
+    st_server.sin_family=AF_INET;
+    // le estoy cargando la ip del servidor al socket, ojo que no se si esta bien porque juan le mete aca la ip de cualerui internfaz del cliente "ANYADDR"
+    //Carga de dirección IPv4 del socket
+    /*
+     aca se le pone directamente la macro INADDR_ANY a la estructura "st_server" porque este sera el socket server UDP
+    */
+    st_server.sin_addr.s_addr=INADDR_ANY;
+    st_server.sin_port=htons(PORTUDP);
+
+    //seteo de las opciones del socket
+    int valor=1;
+    setsockopt(sockudp_client, SOL_SOCKET, SO_REUSEADDR, &valor, sizeof(valor)); // le indico al SO que puede reutilizar la dir del socket
+
+    //se hace el bind porque en esta fucion "send telemetria" quien oficia de server y recibe una peticion a traves de UDP en este caso es el satelite y no la base terrestre
+    if ( bind(sockudp_client, (struct sockaddr *)&st_server, sizeof(st_server) )  < 0 ){
+        perror("satellite: error al hacer bind en el socket_udp");
+    }
+
+    socklen_t dest_size= sizeof(struct sockaddr);
+    char buffer[BUFFER_SIZE];
+    printf("esperando que la base solicite la telemetria \n");
+    while (strcmp(buffer, "get_tel") != 0){
+        // recbir de: estacion terrestre
+        //
+
+        if ( recvfrom(sockudp_client, buffer, sizeof(buffer), 0, (struct sockaddr *)&st_server, &dest_size  ) <0 ){
+            perror("error al recibir UDP desde etacion terrestre");
+        }
+
+    }
+
+    //envio de la telemetria
+    if ( sendto(sockudp_client, telemetria, strlen(telemetria), 0, (struct sockaddr *)&st_server, dest_size) <0 ){
+        perror("error al enviar telemetria por UDP");
+        _exit(1);
+    }
+    sleep(1); //le doy tiempo a la estacion para que parsee la telemetria
+
+    //envio mensaje de finalizacion
+    char *finish = "udp_complete";
+    if ( sendto(sockudp_client, finish, strlen(finish), 0, (struct sockaddr *)&st_server, dest_size  ) <0 ){
+        perror("error al enviar el finish");
+        _exit(1);
+    }
+
+    //limpio el buffer
+    memset(buffer, 0, sizeof(buffer));
+    printf("en este punto la telemetria deberia estar enviada");
+
+    //shutdown(sock, opt)
+    //https://pubs.opengroup.org/onlinepubs/7908799/xns/shutdown.html
+    shutdown(sockudp_client, 2); //opcion 2 = SHUT_WR
+    close(sockudp_client);
+
+}//fin send_telemetria
