@@ -136,7 +136,7 @@ int start_scanning(){
 
 //funcion 3
 int send_telemetria(){
-    printf("se hainvocado la funcion send_telemetria \n");
+    printf("DEBUG: se hainvocado la funcion send_telemetria \n");
 
     //implementacion
     char telemetria[200];
@@ -176,6 +176,8 @@ int send_telemetria(){
 
     socklen_t dest_size= sizeof(struct sockaddr);
     char buffer[BUFFER_SIZE];
+
+
     printf("esperando que la base solicite la telemetria \n");
     while (strcmp(buffer, "get_tel") != 0){
         // recbir de: estacion terrestre
@@ -188,10 +190,13 @@ int send_telemetria(){
     }
 
     //envio de la telemetria
-    if ( sendto(sockudp_client, telemetria, strlen(telemetria), 0, (struct sockaddr *)&st_server, dest_size) <0 ){
+    memset(buffer, 0, sizeof(buffer));
+    strcpy(buffer,telemetria);
+    if ( sendto(sockudp_client, buffer, strlen(telemetria), 0, (struct sockaddr *)&st_server, dest_size) <0 ){
         perror("error al enviar telemetria por UDP");
         _exit(1);
     }
+    printf("DEBUG: telemetria enviada\n");
     sleep(1); //le doy tiempo a la estacion para que parsee la telemetria
 
     //envio mensaje de finalizacion
@@ -200,10 +205,11 @@ int send_telemetria(){
         perror("error al enviar el finish");
         _exit(1);
     }
+    printf("DEBUG: mensaje de finalizacion enviado\n");
 
     //limpio el buffer
     memset(buffer, 0, sizeof(buffer));
-    printf("en este punto la telemetria deberia estar enviada");
+    printf("DEBUG: en este punto la telemetria deberia estar enviada\n");
 
     //shutdown(sock, opt)
     //https://pubs.opengroup.org/onlinepubs/7908799/xns/shutdown.html
