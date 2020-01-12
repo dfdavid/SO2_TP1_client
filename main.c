@@ -12,7 +12,7 @@
 #define BUFFER_SIZE 1000
 #define PORTUDP 5521
 #define FIRMWARE_FILE "./update_file"
-#define FILE_BUFFER_SIZE 16000
+#define FILE_BUFFER_SIZE 2000
 
 char firmware_version[20] = "1.0";
 uint16_t server_port= 5520;
@@ -83,14 +83,14 @@ int main() {
         2 - Start Scanning
         3 - Get Telemetry
         */
-        printf("%s \n", buffer_recepcion);
+        printf("%s\n", buffer_recepcion);
         if (strcmp(buffer_recepcion, "1") == 0 ){ // Update Satellite Firmware
             memset(buffer_recepcion, 0, sizeof(buffer_recepcion));
 
             //recv(sockfd, buffer_recepcion, sizeof(buffer_recepcion), 0 );
 
             update_firmware(sockfd); // le paso a la func el sockfd que debe usar ya que ahi llegaran los datos
-            send(sockfd, buffer, sizeof(buffer), 0 );
+
         }
         else if( strcmp(buffer_recepcion, "2") == 0 ){ // Start Scanning
             start_scanning();
@@ -125,57 +125,67 @@ long get_uptime(){
 
 //funcion 1
 int update_firmware(int sockfd_arg){
-    printf("ha invocado la funcion 'Update Satellite Firmware'\n");
+    printf("DEBUG: ha invocado la funcion 'Update Satellite Firmware'\n");
     printf("la version actual del firmware en este dispositivo es: %s\n", firmware_version);
-    //printf("falta implementar el cuerpo de esta funcion\n");
     int firmware_fd;
+    int bytes_escritos=0;
 
     //try to open fd
     /*
     //https://pubs.opengroup.org/onlinepubs/009695399/functions/open.html
     //int open(const char *path, int oflag, file_permissions );
     */
-    if ( firmware_fd=open(FIRMWARE_FILE, O_WRONLY|O_CREAT|O_TRUNC, 0777) < 0){
+    if ( (firmware_fd=open(FIRMWARE_FILE, O_WRONLY|O_CREAT|O_TRUNC, 0777) ) < 0 ){
         perror("error al crear el archivo");
     }
 
-    char buffer_recepcion[FILE_BUFFER_SIZE];
+    char buffer_recepcion[FILE_BUFFER_SIZE]; //FILE_BUFFER_SIZE=16000
     long byte_leido;
 
     uint32_t bytes_recibidos;
     //atencion que estoy leyendo de a 4 bytes a la vez, no leo el stream completo
-    if ( byte_leido=recv(sockfd_arg, &bytes_recibidos, 4, 0) < 0 ){
-        perror("error en la recepcion a travez del socket_arg");
+    if ( (byte_leido=recv(sockfd_arg, &bytes_recibidos, 4, 0) ) != 0 ){
+        if ( byte_leido <= 0 ){
+            perror("error en la recepcion a traves del socket_arg");
+        }
+
     }
 
     //se transforma el numero de bytes recibidos de network a host long (uint32_t)
     bytes_recibidos=ntohl(bytes_recibidos);
-    printf("Cantidad de bytes en el stream TCP: %i\n", bytes_recibidos);
+    printf("Cantidad de bytes en el archivo a recibir (stream TCP): %i\n", bytes_recibidos);
+
 
     //mientras queden bytes sin leer...
     while(bytes_recibidos){
         memset(buffer_recepcion, 0, sizeof(buffer_recepcion));
+
         //controlo un prosible error de recepcion
-        if( byte_leido = recv(sockfd_arg, buffer_recepcion, sizeof(buffer_recepcion), 0) < 0){
+        if( (byte_leido = recv(sockfd_arg, buffer_recepcion, sizeof(buffer_recepcion), 0)) != 0){
             if (byte_leido < 0){
                 perror("error en la recepcion en el socket 'sockfd_arg'");
             }
         }
 
-        //voy a ir escribiendo el archivo que cree oon lo bytes que vaya "sacando/leyendo" del socket
-        if( write(firmware_fd, &bytes_recibidos, (size_t)byte_leido) < 0 ){
-            perror("error al escribir el archivo creado");
-            _exit(EXIT_FAILURE);
+        //voy a ir escribiendo el archivo que cree oon los bytes que vaya "sacando/leyendo" del socket
+        if(0 > (bytes_escritos = write(firmware_fd, buffer_recepcion, (size_t) byte_leido))  ){
+                perror("error al escribir el archivo creado");
+                _exit(EXIT_FAILURE);
         }
 
+        printf("%d\n", bytes_escritos);
         bytes_recibidos -= byte_leido;
     }
+
     //cierro el file descriptor
-    close(firmware_fd);
-    printf("DEBUG: Finalizada la recepcion del archivo 1.1");
-    printf("DEBUG: reiniciando el sistema con el nuevo firmware");
+    close(firmware_fd );
+
+    printf("DEBUG: Finalizada la recepcion del archivo desde la estacion terrestre\n");
+    printf("reiniciando el sistema con el nuevo firmware\n");
     //cierro tambien el socket_arg
-    close(sockfd_arg);
+    //close(sockfd_arg); esto lo cierro solocuando implemente el RE-EJECUTAR
+
+    //aca esta faltando la parte de reiniciar automaticamente el programa con la nueva version de firmware
     //char exec,
 
 
