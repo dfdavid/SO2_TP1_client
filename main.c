@@ -8,24 +8,26 @@
 #include <stdbool.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 #define BUFFER_SIZE 1000
 #define PORTUDP 5521
 #define FIRMWARE_FILE "./update_file"
 #define FILE_BUFFER_SIZE 2000
+#define ARCHIVO_IMAGEN "./archivo_imagen_cli.JPG"
 
 char firmware_version[20] = "1.0";
 uint16_t server_port= 5520;
 char ip_server_buff[32]="192.168.2.7";
 char *ip_server = NULL;
 unsigned int retry_time=3;
-char buffer[BUFFER_SIZE], auxBuffer[BUFFER_SIZE];
+//char buffer[BUFFER_SIZE], auxBuffer[BUFFER_SIZE];
 
 long get_uptime(); //esta funcion devuelve el uptime del SO del satelite
 //funcion 1
 int update_firmware(int sockfd_arg);
 //funcion 2
-int start_scanning();
+int start_scanning(int sockfd);
 int send_telemetria();
 
 
@@ -33,8 +35,8 @@ int send_telemetria();
 
 int main() {
 
-    printf("ejecutando main \n");
-
+    printf("DEBUG: ejecutando main \n");
+    printf("Version del firmware: %s\n", firmware_version);
     int sockfd, ip_srv_load;
     struct sockaddr_in dest_addr;
 
@@ -93,7 +95,7 @@ int main() {
 
         }
         else if( strcmp(buffer_recepcion, "2") == 0 ){ // Start Scanning
-            start_scanning();
+            start_scanning(sockfd);
         }
         else if( strcmp(buffer_recepcion, "3") == 0 ){ // Get Telemetry
             send_telemetria();
@@ -137,6 +139,7 @@ int update_firmware(int sockfd_arg){
     */
     if ( (firmware_fd=open(FIRMWARE_FILE, O_WRONLY|O_CREAT|O_TRUNC, 0777) ) < 0 ){
         perror("error al crear el archivo");
+
     }
 
     char buffer_recepcion[FILE_BUFFER_SIZE]; //FILE_BUFFER_SIZE=16000
@@ -178,23 +181,71 @@ int update_firmware(int sockfd_arg){
     }
 
     //cierro el file descriptor
-    close(firmware_fd );
+    close(firmware_fd);
 
     printf("DEBUG: Finalizada la recepcion del archivo desde la estacion terrestre\n");
     printf("reiniciando el sistema con el nuevo firmware\n");
     //cierro tambien el socket_arg
-    //close(sockfd_arg); esto lo cierro solocuando implemente el RE-EJECUTAR
+    close(sockfd_arg); //esto lo cierro solocuando implemente el RE-EJECUTAR
 
     //aca esta faltando la parte de reiniciar automaticamente el programa con la nueva version de firmware
-    //char exec,
+    char ejecutable[100] = "";
+    strcat(ejecutable, FIRMWARE_FILE );
+    char *argv[] = {FIRMWARE_FILE, NULL};
+    //ejemplode uso de excev
+    /*
+     https://pubs.opengroup.org/onlinepubs/009695399/functions/exec.html
+     Using execv()
+
+        The following example passes arguments to the ls command in the cmd array.
+
+        #include <unistd.h>
 
 
+        int ret;
+        char *cmd[] = { "ls", "-l", (char *)0 };
+        ...
+        ret = execv ("/bin/ls", cmd);
+    */
+    if (execv(ejecutable, argv) < 0){
+        perror("error al reiniciar");
+    }
 }
 
 //funcion 2
-int start_scanning(){
+int start_scanning(int sockfd_arg2){
     printf("ha invocado la funcion 'start_scanning' \n");
-    printf("falta implementar el cuerpo de esta funcion \n");
+    int imagen_fd;
+    struct stat wtf;
+    char *archivo_imagen=ARCHIVO_IMAGEN;
+    if ((imagen_fd=open(archivo_imagen, O_RDONLY)) >0){
+        perror("error al abrir el archivo de imagen\n");
+        return 0; //esto es cero porque da error. Se le podria cambiar a otro valor como -1
+    }
+
+    int count;
+    char buffer_envio2[FILE_BUFFER_SIZE];
+    fstat(imagen_fd, &wtf);
+    off_t file_size= wtf.st_size;
+    printf("DEBUG: tamaño del archivo a enviar %li\n", file_size);
+    int32_t bytes=htonl(file_size);
+    char *send_bytes = (char*)&bytes;
+    printf("DEBUG: n° de bytes a enviar: %i\n", ntohl(bytes) );
+
+    if(send(sockfd_arg2, send_bytes, sizeof(bytes), 0 ) <0 ){
+        perror("error al enviar el archivo de imagen");
+    }
+
+    while (count = read(imagen_fd, buffer_envio2, FILE_BUFFER_SIZE) > 0){
+        if(send(sockfd_arg2, buffer_envio2, count, 0) < 0 ){
+            perror("error al enviar el archivo de imagen en ls suscesios bytes");
+        }
+        memset(buffer_envio2, 0, sizeof(buffer_envio2));
+    }
+    close(imagen_fd);
+    printf("DEBUG: envio de la imagen finalizado\n");
+    return 1; //se retorna 1 al completar con exito el envio de la imagen
+
 }
 
 //funcion 3
