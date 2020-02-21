@@ -10,18 +10,19 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-#define BUFFER_SIZE 1000
+#define BUFFER_SIZE 1024
 #define PORTUDP 5521
 #define FIRMWARE_FILE "./update_file"
-#define FILE_BUFFER_SIZE 2000
-#define ARCHIVO_IMAGEN "./archivo_imagen_cli.JPG"
+#define FILE_BUFFER_SIZE 1500
+#define ARCHIVO_IMAGEN "../data/20200481950_GOES16-ABI-FD-GEOCOLOR-10848x10848.jpg"
 
 char firmware_version[20] = "1.0";
 uint16_t server_port= 5520;
-char ip_server_buff[32]="192.168.2.7";
+char ip_server_buff[32]="192.168.1.4";
 char *ip_server = NULL;
 unsigned int retry_time=3;
 //char buffer[BUFFER_SIZE], auxBuffer[BUFFER_SIZE];
+
 
 long get_uptime(); //esta funcion devuelve el uptime del SO del satelite
 //funcion 1
@@ -29,10 +30,13 @@ int update_firmware(int sockfd_arg);
 //funcion 2
 int start_scanning(int sockfd);
 int send_telemetria();
+void get_dir();
 
 
-
-
+/**
+ * @brief Programa cliente. Tiene como objetivo simular el firmaware del satelite que se conecta al programa servidor (Base Terrestre) y queda a la espera de ordenes del mismo.
+ * @return
+ */
 int main() {
 
     printf("DEBUG: ejecutando main \n");
@@ -115,6 +119,10 @@ int main() {
     return 0;
 }//end main
 
+/**
+ * @brief Funcion que devuelve el uptime del sistema cuando es invacada
+ * @return Devuelve un long con el uptime
+ */
 long get_uptime(){
     struct sysinfo s_info;
     int error = sysinfo(&s_info);
@@ -126,6 +134,11 @@ long get_uptime(){
 }
 
 //funcion 1
+/**
+ * @brief Recibe mediante el socjet TCP de la comunicacion establecida un nuevo firmware. Luego de recibirlo satisfactoriamente se cierra el proceso actual y se ejecuta en nuevo firmaware perdiendo la conexion.
+ * @param sockfd_arg El socket de la comunicacion TCP establecida.
+ * @return Devuelve 0 si no se ha podido crear en el file system el archivo para la recepcion del firmware. Devuelve 1 en caso de que no se haya podido reiniciar el proceso cliente.
+ */
 int update_firmware(int sockfd_arg){
     printf("DEBUG: ha invocado la funcion 'Update Satellite Firmware'\n");
     printf("la version actual del firmware en este dispositivo es: %s\n", firmware_version);
@@ -139,7 +152,7 @@ int update_firmware(int sockfd_arg){
     */
     if ( (firmware_fd=open(FIRMWARE_FILE, O_WRONLY|O_CREAT|O_TRUNC, 0777) ) < 0 ){
         perror("error al crear el archivo");
-
+        return 0;
     }
 
     char buffer_recepcion[FILE_BUFFER_SIZE]; //FILE_BUFFER_SIZE=16000
@@ -210,25 +223,31 @@ int update_firmware(int sockfd_arg){
     if (execv(ejecutable, argv) < 0){
         perror("error al reiniciar");
     }
+    return 1;
 }
 
 //funcion 2
+/**
+ * @brief Abre el archivo de imagen y lo envia al proceso servidor a traces del socket TCP abierto en la comunicacion establecida.
+ * @param sockfd_arg2 Socketfd TCP abierto en la comunicacion cliente servidor
+ * @return Devuelve -1 cuando no se podido abrir el archivo de imagen a enviar para su lectura. Devuelve 1 al completar con exito el envio de la imagen.
+ */
 int start_scanning(int sockfd_arg2){
     printf("ha invocado la funcion 'start_scanning' \n");
     int imagen_fd;
     struct stat wtf;
     char *archivo_imagen=ARCHIVO_IMAGEN;
-    if ((imagen_fd=open(archivo_imagen, O_RDONLY)) >0){
+    if ((imagen_fd=open(archivo_imagen, O_RDONLY)) < 0){
         perror("error al abrir el archivo de imagen\n");
-        return 0; //esto es cero porque da error. Se le podria cambiar a otro valor como -1
+        return -1; //esto es cero porque da error. Se le podria cambiar a otro valor como -1
     }
 
     int count;
     char buffer_envio2[FILE_BUFFER_SIZE];
     fstat(imagen_fd, &wtf);
     off_t file_size= wtf.st_size;
-    printf("DEBUG: tamaño del archivo a enviar %li\n", file_size);
-    int32_t bytes=htonl(file_size);
+    printf("DEBUG: tamaño del archivo a enviar %li bytes\n", file_size);
+    u_int32_t bytes=htonl(file_size);
     char *send_bytes = (char*)&bytes;
     printf("DEBUG: n° de bytes a enviar: %i\n", ntohl(bytes) );
 
@@ -236,9 +255,9 @@ int start_scanning(int sockfd_arg2){
         perror("error al enviar el archivo de imagen");
     }
 
-    while (count = read(imagen_fd, buffer_envio2, FILE_BUFFER_SIZE) > 0){
+    while ( (count = read(imagen_fd, buffer_envio2, FILE_BUFFER_SIZE) ) > 0){
         if(send(sockfd_arg2, buffer_envio2, count, 0) < 0 ){
-            perror("error al enviar el archivo de imagen en ls suscesios bytes");
+            perror("error al enviar el archivo de imagen en la suscesion de bytes");
         }
         memset(buffer_envio2, 0, sizeof(buffer_envio2));
     }
@@ -249,6 +268,10 @@ int start_scanning(int sockfd_arg2){
 }
 
 //funcion 3
+/**
+ * @brief Abre un socket UDP con el numero de puerto especificado en la macro PORTUDP. Obtiene la informacion de telemetria y la envia por el socket UDP recientemente abierto.
+ * @return Devuelve 0 si no se ha podido abrir el socket UDP. Devuelve 1 si la telemetria se ha enviado satisfactoriamente. No hay garantia de la integridad ni de la recepcion de los datos.
+ */
 int send_telemetria(){
     printf("DEBUG: se hainvocado la funcion send_telemetria \n");
 
@@ -265,6 +288,7 @@ int send_telemetria(){
     sockudp_client = socket(AF_INET, SOCK_DGRAM, 0);
     if ( sockudp_client < 0){
         perror("error al abrir el socket UDP en el cliente");
+        return 0;
     }
 
     //limpio la estrucutra que contiene los datos del server
@@ -329,5 +353,18 @@ int send_telemetria(){
     //https://pubs.opengroup.org/onlinepubs/7908799/xns/shutdown.html
     shutdown(sockudp_client, 2); //opcion 2 = SHUT_WR
     close(sockudp_client);
+    return 1;
 
 }//fin send_telemetria
+
+/**
+ *@brief Funcion simple que imprime en consola el path absoluto en el cual se encuentra el ejecutable del programa que la invoca.
+ */
+void get_dir() {
+    char cwd[BUFFER_SIZE];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        printf("Current working dir: %s\n", cwd);
+    } else {
+        perror("getcwd() error");
+    }
+}
