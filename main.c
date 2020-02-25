@@ -279,14 +279,10 @@ int send_telemetria(){
     //implementacion
     char telemetria[200];
     struct sysinfo s_info;
-    //int num =0;
-    //char *str="a";
     long upt= get_uptime();
-    u_long fram= s_info.freeram;
-    uint64_t fram2 = s_info.freeram;
+    u_long fram = s_info.freeram;
 
-
-    sprintf(telemetria, "%d|%ld|%s|%lu\n", ID, upt, firmware_version, s_info.totalram - s_info.freeram );
+    sprintf(telemetria, "%d|%ld|%s|%lu\n", ID, upt, firmware_version, fram );
     printf("DEBUG: telemetria = %s\n", telemetria);
 
     //envio por UDP
