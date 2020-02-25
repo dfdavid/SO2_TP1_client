@@ -5,20 +5,20 @@
 #include <arpa/inet.h>
 #include <unistd.h> //en esta libreria esta la funcion sleep(), la funcion read()
 #include <sys/sysinfo.h>
-#include <stdbool.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 
 #define BUFFER_SIZE 1024
 #define PORTUDP 5521
-#define FIRMWARE_FILE "./update_file"
+#define FIRMWARE_FILE "./updated_firmaware_received"
 #define FILE_BUFFER_SIZE 1500
 #define ARCHIVO_IMAGEN "../data/20200481950_GOES16-ABI-FD-GEOCOLOR-10848x10848.jpg"
+#define ID 0
 
 char firmware_version[20] = "1.0";
 uint16_t server_port= 5520;
-char ip_server_buff[32]="192.168.1.4";
+char ip_server_buff[32]="192.168.2.7";
 char *ip_server = NULL;
 unsigned int retry_time=3;
 //char buffer[BUFFER_SIZE], auxBuffer[BUFFER_SIZE];
@@ -41,7 +41,8 @@ int main() {
 
     printf("DEBUG: ejecutando main \n");
     printf("Version del firmware: %s\n", firmware_version);
-    int sockfd, ip_srv_load;
+    int sockfd;
+    //int ip_srv_load;
     struct sockaddr_in dest_addr;
 
     char buffer_recepcion[BUFFER_SIZE];
@@ -121,7 +122,7 @@ int main() {
 
 /**
  * @brief Funcion que devuelve el uptime del sistema cuando es invacada
- * @return Devuelve un long con el uptime
+ * @return Devuelve un long con el uptime del sistema en segundos
  */
 long get_uptime(){
     struct sysinfo s_info;
@@ -130,8 +131,8 @@ long get_uptime(){
     {
         printf("code error = %d\n", error);
     }
-    return s_info.uptime;
-}
+      return s_info.uptime;
+    }
 
 //funcion 1
 /**
@@ -277,9 +278,15 @@ int send_telemetria(){
 
     //implementacion
     char telemetria[200];
-    int num =0;
-    char *str="a";
-    sprintf(telemetria, "%d|%s| \n", num, str);
+    struct sysinfo s_info;
+    //int num =0;
+    //char *str="a";
+    long upt= get_uptime();
+    u_long fram= s_info.freeram;
+    uint64_t fram2 = s_info.freeram;
+
+
+    sprintf(telemetria, "%d|%ld|%s|%lu\n", ID, upt, firmware_version, s_info.totalram - s_info.freeram );
     printf("DEBUG: telemetria = %s\n", telemetria);
 
     //envio por UDP
