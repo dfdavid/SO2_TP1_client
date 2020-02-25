@@ -234,7 +234,7 @@ int update_firmware(int sockfd_arg){
  * @return Devuelve -1 cuando no se podido abrir el archivo de imagen a enviar para su lectura. Devuelve 1 al completar con exito el envio de la imagen.
  */
 int start_scanning(int sockfd_arg2){
-    printf("ha invocado la funcion 'start_scanning' \n");
+    printf("DEBUG: ha invocado la funcion 'start_scanning' \n");
     int imagen_fd;
     struct stat wtf;
     char *archivo_imagen=ARCHIVO_IMAGEN;
@@ -282,7 +282,7 @@ int send_telemetria(){
     long upt= get_uptime();
     u_long fram = s_info.freeram;
 
-    sprintf(telemetria, "%d|%ld|%s|%lu\n", ID, upt, firmware_version, fram );
+    sprintf(telemetria, "%d | %ld | %s | %lu ", ID, upt, firmware_version, fram );
     printf("DEBUG: telemetria = %s\n", telemetria);
 
     //envio por UDP
