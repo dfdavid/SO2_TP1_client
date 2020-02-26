@@ -13,7 +13,7 @@
 #define PORTUDP 5521
 #define FIRMWARE_FILE "./updated_firmaware_received"
 #define FILE_BUFFER_SIZE 1500
-#define ARCHIVO_IMAGEN "../data/20200481950_GOES16-ABI-FD-GEOCOLOR-10848x10848.jpg"
+#define ARCHIVO_IMAGEN "../data/full-disk-color-22.jpg"
 #define ID 0
 
 char firmware_version[20] = "1.0";
@@ -274,7 +274,7 @@ int start_scanning(int sockfd_arg2){
  * @return Devuelve 0 si no se ha podido abrir el socket UDP. Devuelve 1 si la telemetria se ha enviado satisfactoriamente. No hay garantia de la integridad ni de la recepcion de los datos.
  */
 int send_telemetria(){
-    printf("DEBUG: se hainvocado la funcion send_telemetria \n");
+    printf("DEBUG: se ha invocado la funcion send_telemetria \n");
 
     //implementacion
     char telemetria[200];
@@ -319,7 +319,7 @@ int send_telemetria(){
     char buffer[BUFFER_SIZE];
 
 
-    printf("esperando que la base solicite la telemetria \n");
+    printf("Esperando que la base solicite la telemetria \n");
     while (strcmp(buffer, "get_tel") != 0){
         // recbir de: estacion terrestre
         //
