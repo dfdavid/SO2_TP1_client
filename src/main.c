@@ -8,13 +8,15 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <errno.h>
+#include <signal.h>
 
 #define BUFFER_SIZE 1024
 #define PORTUDP 5521
 #define FIRMWARE_FILE "./updated_firmaware_received"
 #define FILE_BUFFER_SIZE 1500
 #define ARCHIVO_IMAGEN "../data/full-disk-color-22.jpg"
-#define ID 0
+#define ID 1
 
 char firmware_version[20] = "1.0";
 uint16_t server_port= 5520;
@@ -39,6 +41,7 @@ void get_dir();
  */
 int main() {
 
+    signal(SIGPIPE, SIG_IGN);
     printf("DEBUG: ejecutando main \n");
     printf("Version del firmware: %s\n", firmware_version);
     int sockfd;
@@ -82,6 +85,7 @@ int main() {
         //Upon successful completion, recv() returns the length of the message in bytes. If no messages are available to be received and the peer has performed an orderly shutdown, recv() returns 0. Otherwise, -1 is returned and errno is set to indicate the error.
         if (recv(sockfd, buffer_recepcion, sizeof(buffer_recepcion), 0  ) < 0){
             perror("error al recibir");
+            //if ()
         }
 
         //opciones del lado del cliente:
@@ -105,8 +109,39 @@ int main() {
         else if( strcmp(buffer_recepcion, "3") == 0 ){ // Get Telemetry
             send_telemetria();
         }
-        else{
-            printf("DEBUG: se recibio algo distinto de 1 2 o 3\n");
+        else{ // manejo de errores: opciones no validas o perdida de conexion
+            printf("DEBUG: se recibio un comando no valido\n");
+            if (send(sockfd, buffer_recepcion, sizeof(buffer_recepcion), 0) < 0){
+                perror("error en la comunicacion");
+                if (errno == EPIPE){
+                    //relanzar el cliente con execv o similar
+                    char ejecutable[100] = "";
+                    strcat(ejecutable, "./tp1_client" );
+                    char *argv[] = {"./tp1_client", NULL};
+                    //ejemplo de uso de excev
+                    /*
+                     https://pubs.opengroup.org/onlinepubs/009695399/functions/exec.html
+                     Using execv()
+
+                        The following example passes arguments to the ls command in the cmd array.
+
+                        #include <unistd.h>
+
+
+                        int ret;
+                        char *cmd[] = { "ls", "-l", (char *)0 };
+                        ...
+                        ret = execv ("/bin/ls", cmd);
+                    */
+                    if (execv(ejecutable, argv) < 0){
+                        perror("error al intentar reiniciar");
+                        exit(231);
+                    }
+                }
+            }
+            else{
+                printf("opcion no valida, eligir una opcion...\n");
+            }
             sleep(2);
         }
 
@@ -202,7 +237,7 @@ int update_firmware(int sockfd_arg){
     //cierro tambien el socket_arg
     close(sockfd_arg); //esto lo cierro solocuando implemente el RE-EJECUTAR
 
-    //aca esta faltando la parte de reiniciar automaticamente el programa con la nueva version de firmware
+    //reiniciar automaticamente el programa con la nueva version de firmware
     char ejecutable[100] = "";
     strcat(ejecutable, FIRMWARE_FILE );
     char *argv[] = {FIRMWARE_FILE, NULL};
